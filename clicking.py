@@ -70,7 +70,7 @@ while True:
 				click(x,y)
 		else:
 			resetTimer()
-	if(topic == "gaze_positions")
+	if(topic == "gaze_positions"):
 		# mouse location code borrowed from pupil-helpers
 		gaze_on_screen = msg['realtime gaze on ' + surface_name]
 		raw_x,raw_y = gaze_on_screen
