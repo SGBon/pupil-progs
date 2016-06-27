@@ -1,10 +1,11 @@
+
 #facilitates clicking by finding out when the eye closes
 start = 0
 elapsed = 0
 def checkElapsed(current):
 	global start
 	global elapsed
-	delay = 1.0
+	delay = 0.1
 	if(start != 0 and elapsed > delay):
 		start = 0
 		elapsed = 0
@@ -71,22 +72,25 @@ while True:
 		else:
 			resetTimer()
 	if(topic == "gaze_positions"):
-		# mouse location code borrowed from pupil-helpers
-		gaze_on_screen = msg['realtime gaze on ' + surface_name]
-		raw_x,raw_y = gaze_on_screen
-		raw_x = 1 - raw_x
-		# smoothing out the gaze so the mouse has smoother movement
-		smooth_x += 0.5 * (raw_x-smooth_x)
-		smooth_y += 0.5 * (raw_y-smooth_y)
-		x = smooth_x
-		y = smooth_y
+		try:
+			# mouse location code borrowed from pupil-helpers
+			gaze_on_screen = msg['realtime gaze on ' + surface_name]
+			raw_x,raw_y = gaze_on_screen
+			raw_x = 1 - raw_x
+			# smoothing out the gaze so the mouse has smoother movement
+			smooth_x += 0.5 * (raw_x-smooth_x)
+			smooth_y += 0.5 * (raw_y-smooth_y)
+			x = smooth_x
+			y = smooth_y
 
-		y = 1-y # inverting y so it shows up correctly on screen
-		x *= int(x_dim)
-		y *= int(y_dim)
-		# PyMouse or MacOS bugfix - can not go to extreme corners because of hot corners?
-		x = min(x_dim-10, max(10,x))
-		y = min(y_dim-10, max(10,y))
-		set_mouse(x,y)
+			y = 1-y # inverting y so it shows up correctly on screen
+			x *= int(x_dim)
+			y *= int(y_dim)
+			# PyMouse or MacOS bugfix - can not go to extreme corners because of hot corners?
+			x = min(x_dim-10, max(10,x))
+			y = min(y_dim-10, max(10,y))
+			set_mouse(x,y)
+		except:
+			pass
 
 	#print "\n\n",topic,":\n",msg
