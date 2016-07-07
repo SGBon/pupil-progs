@@ -1,21 +1,33 @@
 ##### highlights shapes on screen when user looks at them
 ##### made to test viewing the screen from different angles
-width = 1680
-height = 1080
-
 import zmq
-import json
+from msgpack import loads
+
+import time
+from platform import system
+from pymouse import PyMouse
+m = PyMouse()
+m.move(0,0) # hack to init PyMouse -- still needed
 
 import numpy as np
 import cv2
 
-img = np.zeros((height,width,3),np.uint8)
-
 shapes = list()
 sq1 = [100,100,200,200]
 sq2 = [320,100,420,200]
+sq3 = [700,800,800,900]
 shapes.append(sq1)
 shapes.append(sq2)
+shapes.append(sq3)
+
+def get_screen_size():
+	screen_size = None
+	if system() == "Darwin":
+		screen_size = sp.check_output(["./mac_os_helpers/get_screen_size"]).split(",")
+		screen_size = float(screen_size[0]),float(screen_size[1])
+	else:
+		screen_size = m.screen_size()
+	return screen_size
 
 def drawShape(shape,within):
 	global img
@@ -31,34 +43,48 @@ def checkBounds(shape ,eyex,eyey):
 	else:
 		return False
 
-#network setup
-port = "5000"
-context = zmq.Context();
-socket = context.socket(zmq.SUB)
-socket.connect("tcp://127.0.0.1:"+port)
+context = zmq.Context()
+#open a req port to talk to pupil
+addr = '127.0.0.1' # remote ip or localhost
+req_port = "50020" # same as in the pupil remote gui
+req = context.socket(zmq.REQ)
+req.connect("tcp://%s:%s" %(addr,req_port))
+# ask for the sub port
+req.send('SUB_PORT')
+sub_port = req.recv()
+# open a sub port to listen to pupil
+sub = context.socket(zmq.SUB)
+sub.connect("tcp://%s:%s" %(addr,sub_port))
+sub.setsockopt(zmq.SUBSCRIBE, 'surface')
 
-#recieve gaze positions
-socket.setsockopt(zmq.SUBSCRIBE,'gaze_positions')
 surface_name = "monitor"
 Showing = True
-cv2.namedWindow("Gazing", cv2.WND_PROP_FULLSCREEN)
-cv2.setWindowProperty("Gazing", cv2.WND_PROP_FULLSCREEN, cv2.cv.CV_WINDOW_FULLSCREEN)
-cv2.imshow('Gazing',img)
-k = cv2.waitKey(1)
+
+# screen size
+x_dim, y_dim = get_screen_size()
+img = np.zeros((y_dim,x_dim,3),np.uint8)
+print "x_dim: %s, y_dim: %s" %(x_dim,y_dim)
+
 while Showing:
-	topic,msg = socket.recv_multipart()
-	eye_positions = json.loads(msg)
+	topic,msg = sub.recv_multipart()
+	eye_positions = loads(msg)
 	try:
-		eyex,eyey = eye_positions['realtime gaze on ' + surface_name]
-		eyex = 1 - eyex
-		for shape in shapes:
-			within = checkBounds(shape,eyex,eyey)
-			drawShape(shape,within)
-		cv2.namedWindow("Gazing", cv2.WND_PROP_FULLSCREEN)
-		cv2.setWindowProperty("Gazing", cv2.WND_PROP_FULLSCREEN, cv2.cv.CV_WINDOW_FULLSCREEN)
-		cv2.imshow('Gazing',img)
-		k = cv2.waitKey(1)
-		if k == 27:
-			Showing = False
+		img = np.zeros((y_dim,x_dim,3),np.uint8)
+		eyex,eyey = eye_positions['gaze_on_srf'][0]
+		eyey = 1 - eyey
+		scrx = int(eyex*x_dim)
+		scry = int(eyey*y_dim)
+		if eyex >= 0 and eyey >= 0 and eyex <= x_dim and eyey <= y_dim:
+			for shape in shapes:
+				within = checkBounds(shape,scrx,scry)
+				drawShape(shape,within)
+			cv2.namedWindow("Gazing", cv2.WND_PROP_FULLSCREEN)
+			cv2.setWindowProperty("Gazing", cv2.WND_PROP_FULLSCREEN, cv2.cv.CV_WINDOW_FULLSCREEN)
+			cv2.ellipse(img,(scrx,scry),(10,10),0,0,360,(0,0,255),3)
+			cv2.imshow('Gazing',img)
+			k = cv2.waitKey(1)
+
+			if k == 27:
+				Showing = False
 	except:
 		pass
