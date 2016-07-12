@@ -34,9 +34,10 @@ cx = cy = 256
 img = np.zeros((512,512,3),np.uint8)
 
 # sizing parameters for ellipse size
-pupil = 50
+pupil = 40
 offset = 20
-avg = 90
+
+last = 90
 
 while showing:
 	topic,msg = sub.recv_multipart()
@@ -45,8 +46,9 @@ while showing:
 
 	if diam > 0:
 		d = scaleDiameter(diam)
+		last = d
 	else:
-		d = scaleDiameter(avg)
+		d = last
 	d = int(d*pupil) + offset
 
 	for rad in range(d,125):
