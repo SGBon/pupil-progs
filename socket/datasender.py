@@ -13,15 +13,19 @@ sub_port = req.recv()
 # open a sub port to listen to pupil
 sub = context.socket(zmq.SUB)
 sub.connect("tcp://%s:%s" %(addr,sub_port))
-sub.setsockopt(zmq.SUBSCRIBE, 'pupil')
+sub.setsockopt(zmq.SUBSCRIBE, 'surface')
 
 from socketIO_client import SocketIO, LoggingNamespace
 
 with SocketIO('localhost',3000,LoggingNamespace) as socketIO:
-	for x in range(0,100):
+	while True:
 		topic,msg = sub.recv_multipart()
 		eye_positions = loads(msg)
-		eyes = eye_positions['norm_pos']
-		socketIO.emit('eye pos',eyes)
-
+		try:
+			eyes = eye_positions['gaze_on_srf'][0]
+			if(eyes[0] >=0 and eyes[0] <= 1 and eyes[1] >= 0 and eyes[1] <= 1):
+				print eyes
+				socketIO.emit('eye pos',eyes)
+		except:
+			pass
 socketIO.wait(1)
