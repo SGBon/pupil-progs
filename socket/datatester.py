@@ -11,6 +11,6 @@ with SocketIO('localhost',3000,LoggingNamespace) as socketIO:
 		y = random.random()*0.39
 		eyes = [x,1 - y]
 		socketIO.emit('eye pos',eyes)
-		time.sleep(1)
+		time.sleep(0.5)
 
 socketIO.wait(1)
