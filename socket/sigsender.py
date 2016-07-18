@@ -4,7 +4,7 @@ from msgpack import loads
 import sys
 
 if len(sys.argv) > 1:
-	sig = sys.argv[1] # set signature to first argument
+	sig = int(sys.argv[1]) # set signature to first argument
 else:
 	sig = 0 # default signature
 
