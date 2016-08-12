@@ -18,8 +18,8 @@ def frange(start,stop,step):
 
 with SocketIO('localhost',3000,LoggingNamespace) as socketIO:
 	while True:
-		for i in frange(0.0,0.8,0.05):
-			for j in frange(0.0,0.6,0.03):
+		for i in frange(0.1,1.0,0.05):
+			for j in frange(0.0,1.0,0.1):
 		#x = random.random()*0.58
 		#y = random.random()*0.78
 		#eyes = [x,1 - y]

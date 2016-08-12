@@ -27,9 +27,8 @@ import numpy as np
 while True:
 	topic,msg,frame = sub.recv_multipart()
 	unpacked = loads(msg)
-	npframe = np.fromstring(frame,np.uint8)
-	img = cv2.imdecode(npframe,cv2.IMREAD_COLOR)
-	cv2.imshow('img',img)
+	npframe = np.fromstring(frame,np.uint8).reshape(720,1280,3)
+	cv2.imshow('img',npframe)
 	k = cv2.waitKey(1) & 0xFF
 	if k == 27:
 		break;
