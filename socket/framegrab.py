@@ -30,6 +30,8 @@ while True:
 	npframe = np.fromstring(frame,np.uint8)
 	img = cv2.imdecode(npframe,cv2.IMREAD_COLOR)
 	cv2.imshow('img',img)
-	cv2.waitKey(1)
+	k = cv2.waitKey(1) & 0xFF
+	if k == 27:
+		break;
 
 cv2.destroyAllWindows()
