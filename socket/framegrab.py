@@ -1,12 +1,13 @@
+import time
 import zmq
 from msgpack import loads
 
 import sys
-
 if len(sys.argv) > 1:
 	sig = int(sys.argv[1]) # set signature to first argument
 else:
 	sig = 0 # default signature
+# get top messages and just drop them
 
 context = zmq.Context()
 #open a req port to talk to pupil
@@ -24,10 +25,14 @@ sub.setsockopt(zmq.SUBSCRIBE, 'frame.world')
 
 import cv2
 import numpy as np
+
 while True:
-	topic,msg,frame = sub.recv_multipart()
+	start = time.clock()
+	for i in range(0,2):
+		topic,msg,frame = sub.recv_multipart()
+	print time.clock() - start
 	unpacked = loads(msg)
-	npframe = np.fromstring(frame,np.uint8).reshape(720,1280,3)
+	npframe = np.fromstring(frame,np.uint8).reshape(480,640,3)
 	cv2.imshow('img',npframe)
 	k = cv2.waitKey(1) & 0xFF
 	if k == 27:
