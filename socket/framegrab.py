@@ -26,13 +26,21 @@ sub.setsockopt(zmq.SUBSCRIBE, 'frame.world')
 import cv2
 import numpy as np
 
+lasttime = time.clock()
+currtime = 0
 while True:
-	start = time.clock()
-	for i in range(0,2):
+	#start = time.clock()
+	while True:
 		topic,msg,frame = sub.recv_multipart()
-	print time.clock() - start
+		currtime = loads(msg)['timestamp']
+		print currtime,lasttime
+		if(currtime > lasttime):
+			break
+
+	#print time.clock() - start
 	unpacked = loads(msg)
-	npframe = np.fromstring(frame,np.uint8).reshape(480,640,3)
+	lasttime = unpacked['timestamp']
+	npframe = np.fromstring(frame,np.uint8).reshape(480,640)
 	cv2.imshow('img',npframe)
 	k = cv2.waitKey(1) & 0xFF
 	if k == 27:

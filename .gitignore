@@ -1,3 +1,8 @@
 # recordings from byzanz
 *.byzanz
 *.webm
+include/
+lib/
+.clang_complete
+*.o
+cpptester
