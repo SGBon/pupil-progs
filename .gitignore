@@ -6,3 +6,4 @@ lib/
 .clang_complete
 *.o
 cpptester
+zmqtester
