@@ -22,7 +22,7 @@ import random
 import sys
 import time
 
-port = "5558"
+port = "5555"
 if len(sys.argv) > 1:
 	port = sys.argv[1]
 	int (port)
@@ -33,8 +33,12 @@ socket.bind("tcp://*:%s" % port)
 
 topic = "scrshot"
 while True:
+	start = time.time()
 	screen = getScreen(0,0,1920,1080)
 	pack = package(screen)
-	socket.send(topic + ' ' + pack)
-	print 'sending'
+	try:
+		socket.send(topic + ' ' + pack,flags=zmq.NOBLOCK)
+		print time.time() - start,'sending'
+	except zmq.Again as e:
+		pass
 	#time.sleep(1)
