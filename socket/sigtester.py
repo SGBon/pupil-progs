@@ -3,6 +3,7 @@
 import sys
 
 sig = sys.argv[1] # set signature to first argument
+distance = 4000 # distance in mm
 
 from socketIO_client import SocketIO, LoggingNamespace
 import time
@@ -20,11 +21,8 @@ with SocketIO('localhost',3000,LoggingNamespace) as socketIO:
 	while True:
 		for i in frange(0.1,1.0,0.05):
 			for j in frange(0.0,1.0,0.1):
-		#x = random.random()*0.58
-		#y = random.random()*0.78
-		#eyes = [x,1 - y]
-				eyes = [j,1-i]
 				eyes.append(sig) # add signature to data
+				eyes.append(distance)
 				socketIO.emit('eye pos',eyes)
 				time.sleep(0.1)
 
