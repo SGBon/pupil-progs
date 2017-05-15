@@ -19,10 +19,10 @@ def frange(start,stop,step):
 
 with SocketIO('localhost',3000,LoggingNamespace) as socketIO:
 	while True:
-			eyes = [0.4,1-0.4]
+			eyes = [0.6,1-0.55]
 			eyes.append(sig) # add signature to data
 			eyes.append(distance)
 			socketIO.emit('eye pos',eyes)
-			time.sleep(0.5)
+			time.sleep(0.1)
 
 socketIO.wait(1)
