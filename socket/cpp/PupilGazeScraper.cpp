@@ -6,7 +6,10 @@ PupilGazeScraper::PupilGazeScraper(zmq::socket_t *subscriber):
 	active(false){}
 
 void PupilGazeScraper::run(){
+	state_mutex.lock();
 	active = true;
+	state_mutex.unlock();
+
 	zmq::message_t gaze_msg;
 	char *sub_buffer;
 	while(active){
@@ -49,7 +52,6 @@ void PupilGazeScraper::storeGaze(float x, float y){
 	state_mutex.lock();
 	gaze_point.x = x;
 	gaze_point.y = y;
-	printf("STORING: %f %f\n",x,y);
 	state_mutex.unlock();
 }
 

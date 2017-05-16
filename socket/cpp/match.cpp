@@ -1,10 +1,24 @@
 #include <cstdio>
+#include <cstdlib>
 #include <thread>
 
 #include "PupilGazeScraper.hpp"
+#include "PupilFrameGrabber.hpp"
+#include "ScreenShotService.hpp"
 #include "util.hpp"
 
 int main(int argc, char **argv){
+	int frame_width = 640;
+	int frame_height = 480;
+	int screen_width = 1920;
+	int screen_height = 1080;
+	if(argc > 4){
+		frame_width = atoi(argv[1]);
+		frame_height = atoi(argv[2]);
+		screen_width = atoi(argv[3]);
+		screen_height = atoi(argv[4]);
+	}
+
 	const size_t BUFFER_LEN = 100;
 	char buffer[BUFFER_LEN] = {0};
 	std::string transport("tcp://");
@@ -33,21 +47,42 @@ int main(int argc, char **argv){
 	std::string sub_port(":");
 	sub_port += buffer;
 
-	/* create subscriber to subscribe for gaze data */
+	/* create subscriber for gaze data */
 	zmq::socket_t gaze_sub(context,ZMQ_SUB);
 	gaze_sub.connect((transport+address+sub_port).c_str());
 	gaze_sub.setsockopt(ZMQ_SUBSCRIBE,"gaze",4);
 
+	/* create subcriber for frame data */
+	zmq::socket_t frame_sub(context,ZMQ_SUB);
+	frame_sub.connect((transport+address+sub_port).c_str());
+	frame_sub.setsockopt(ZMQ_SUBSCRIBE,"frame.world",11);
+
 	PupilGazeScraper gaze_scraper(&gaze_sub);
 	std::thread gaze_thread(&PupilGazeScraper::run,&gaze_scraper);
 
-	for(float i = 0; i < 60; ++i){
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	PupilFrameGrabber frame_grabber(&frame_sub,frame_width,frame_height);
+	std::thread frame_thread(&PupilFrameGrabber::run,&frame_grabber);
+
+	ScreenShotService screen_shotter(screen_width,screen_height);
+	std::thread screen_thread(&ScreenShotService::run,&screen_shotter);
+
+	int key = 0;
+	while(key != 'q'){
 		GazePoint gaze_point = gaze_scraper.getGazePoint();
-		printf("GETTING: %f %f\n",gaze_point.x,gaze_point.y);
+		printf("GAZE AT %f %f\n",gaze_point.x, gaze_point.y);
+
+		cv::Mat frame = frame_grabber.getLastFrame();
+		cv::namedWindow("Frame");
+		cv::imshow("Frame",frame);
+		key = cv::waitKey(5);
 	}
 
 	gaze_scraper.stop();
+	frame_grabber.stop();
+	screen_shotter.stop();
 
 	gaze_thread.join();
+	frame_thread.join();
+	screen_thread.join();
+
 }
