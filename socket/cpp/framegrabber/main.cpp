@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <string>
 #include <iostream>
 
@@ -51,15 +52,15 @@ int main(int argc, char **argv){
 	std::string sub_port(":");
 	sub_port += buffer;
 
-	/* create subscriber to subscribe for gaze data */
-	zmq::socket_t sub(context,ZMQ_SUB);
-	sub.connect((transport+address+sub_port).c_str());
-	sub.setsockopt(ZMQ_SUBSCRIBE,"frame.world",11);
-
 	zmq::message_t frame_msg;
 	unsigned char *sub_buffer;
+	int key;
 	/* receive topic */
-	while(1){
+	while(key != 'q'){
+		/* create subscriber to subscribe for gaze data */
+		zmq::socket_t sub(context,ZMQ_SUB);
+		sub.setsockopt(ZMQ_SUBSCRIBE,"frame.world",11);
+		sub.connect((transport+address+sub_port).c_str());
 		sub.recv(&frame_msg);
 		sub_buffer = new unsigned char[frame_msg.size()];
 		memcpy(sub_buffer,frame_msg.data(),frame_msg.size());
@@ -87,7 +88,7 @@ int main(int argc, char **argv){
 			cv::imshow("Frame",frame);
 			cv::namedWindow("Screen");
 			cv::imshow("Screen",screen);
-			cv::waitKey(5);
+			key = cv::waitKey(5);
 
 			/* if there's more messages left in multipart message just waste them */
 			while(remaining_messages){
