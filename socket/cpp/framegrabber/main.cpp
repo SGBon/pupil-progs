@@ -8,10 +8,13 @@
 #include <opencv2/opencv.hpp>
 
 #include "util.hpp"
+#include "scrshot.hpp"
 
 int main(int argc, char **argv){
 	int width;
 	int height;
+	int scrheight = 1080;
+	int scrwidth = 1920;
 	if(argc == 3){
 		width = atoi(argv[1]);
 		height = atoi(argv[2]);
@@ -53,13 +56,13 @@ int main(int argc, char **argv){
 	sub.connect((transport+address+sub_port).c_str());
 	sub.setsockopt(ZMQ_SUBSCRIBE,"frame.world",11);
 
-	zmq::message_t gaze_msg;
+	zmq::message_t frame_msg;
 	unsigned char *sub_buffer;
 	/* receive topic */
 	while(1){
-		sub.recv(&gaze_msg);
-		sub_buffer = new unsigned char[gaze_msg.size()];
-		memcpy(sub_buffer,gaze_msg.data(),gaze_msg.size());
+		sub.recv(&frame_msg);
+		sub_buffer = new unsigned char[frame_msg.size()];
+		memcpy(sub_buffer,frame_msg.data(),frame_msg.size());
 		delete[] sub_buffer;
 
 		/* see if there's more data to get, if yes then get the data */
@@ -68,20 +71,23 @@ int main(int argc, char **argv){
 		sub.getsockopt(ZMQ_RCVMORE,&remaining_messages,&option_length);
 		if(remaining_messages){
 			/* frame meta data */
-			gaze_msg.rebuild();
-			sub.recv(&gaze_msg);
+			frame_msg.rebuild();
+			sub.recv(&frame_msg);
 
 			/* the frame itself */
-			gaze_msg.rebuild();
-			sub.recv(&gaze_msg);
+			frame_msg.rebuild();
+			sub.recv(&frame_msg);
 
 			/* receive again cause frame comes after second message */
 			cv::Mat frame(height,width,CV_8U);
-			memcpy(frame.data,gaze_msg.data(),gaze_msg.size());
+			memcpy(frame.data,frame_msg.data(),frame_msg.size());
+			cv::Mat screen = printscreen(0,0,scrwidth,scrheight);
 
-			cv::namedWindow("Display window");
-			cv::imshow("Display window",frame);
-			cv::waitKey(1);
+			cv::namedWindow("Frame");
+			cv::imshow("Frame",frame);
+			cv::namedWindow("Screen");
+			cv::imshow("Screen",screen);
+			cv::waitKey(5);
 
 			/* if there's more messages left in multipart message just waste them */
 			while(remaining_messages){

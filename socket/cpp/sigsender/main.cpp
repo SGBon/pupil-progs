@@ -2,8 +2,6 @@
 #include <cstdlib>
 #include <string>
 #include <iostream>
-#include <vector>
-#include <typeinfo>
 
 #include <zmq.hpp>
 
@@ -47,37 +45,40 @@ int main(int argc, char **argv){
 	sub.connect((transport+address+sub_port).c_str());
 	sub.setsockopt(ZMQ_SUBSCRIBE,"gaze",4);
 
-	/* receive topic */
 	zmq::message_t gaze_msg;
-	sub.recv(&gaze_msg);
-	char *sub_buffer = (char *) malloc(sizeof(char)*gaze_msg.size());
-	memcpy(sub_buffer,gaze_msg.data(),gaze_msg.size());
-	free(sub_buffer);
-
-	/* see if there's more data to get, if yes then get the data */
-	size_t remaining_messages = 0;
-	size_t option_length = sizeof(remaining_messages);
-	sub.getsockopt(ZMQ_RCVMORE,&remaining_messages,&option_length);
-	if(remaining_messages){
-		gaze_msg.rebuild();
+	char *sub_buffer;
+	/* receive topic */
+	while(1){
 		sub.recv(&gaze_msg);
 		sub_buffer = (char *) malloc(sizeof(char)*gaze_msg.size());
 		memcpy(sub_buffer,gaze_msg.data(),gaze_msg.size());
-
-		/* de serialize the gaze data */
-		msgpack::unpacked deserial;
-		msgpack::unpack(&deserial,sub_buffer,gaze_msg.size());
-		msgpack::object gaze_obj = deserial.get();
-
-		/* first item in map is norm_pos */
-		msgpack::object_kv *p(gaze_obj.via.map.ptr);
-		msgpack::object *norm_pos = p->val.via.array.ptr;
-		float x = norm_pos[0].as<float>();
-		float y = norm_pos[1].as<float>();
-
-		printf("%f %f\n",x,y);
-
 		free(sub_buffer);
+
+		/* see if there's more data to get, if yes then get the data */
+		size_t remaining_messages = 0;
+		size_t option_length = sizeof(remaining_messages);
+		sub.getsockopt(ZMQ_RCVMORE,&remaining_messages,&option_length);
+		if(remaining_messages){
+			gaze_msg.rebuild();
+			sub.recv(&gaze_msg);
+			sub_buffer = (char *) malloc(sizeof(char)*gaze_msg.size());
+			memcpy(sub_buffer,gaze_msg.data(),gaze_msg.size());
+
+			/* de serialize the gaze data */
+			msgpack::unpacked deserial;
+			msgpack::unpack(&deserial,sub_buffer,gaze_msg.size());
+			msgpack::object gaze_obj = deserial.get();
+
+			/* first item in map is norm_pos */
+			msgpack::object_kv *p(gaze_obj.via.map.ptr);
+			msgpack::object *norm_pos = p->val.via.array.ptr;
+			float x = norm_pos[0].as<float>();
+			float y = norm_pos[1].as<float>();
+
+			printf("%f %f\n",x,y);
+
+			free(sub_buffer);
+		}
 	}
 
 	return 0;
