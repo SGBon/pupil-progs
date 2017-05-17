@@ -1,12 +1,21 @@
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
+#include <iostream>
+#include <vector>
 #include <thread>
 
+#include <opencv2/opencv.hpp>
 
 #include "PupilGazeScraper.hpp"
 #include "PupilFrameGrabber.hpp"
 #include "scrshot.hpp"
 #include "util.hpp"
+
+/* finds a homography between two images and creates a perspective matrix
+ * so that points from one image can be mapped to points in the other
+ */
+cv::Mat retrieveHomography(const cv::Mat &frame,const cv::Mat &screen);
 
 int main(int argc, char **argv){
 	int frame_width = 640;
@@ -65,6 +74,8 @@ int main(int argc, char **argv){
 	PupilFrameGrabber frame_grabber(&frame_sub,frame_width,frame_height);
 	std::thread frame_thread(&PupilFrameGrabber::run,&frame_grabber);
 
+	cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(2.0);
+
 	/* continously get feed from pupil for gaze data and take screenshots
 	 * get a homography between frame and screenshot and project the gaze coordinates
 	 * to the screen space
@@ -73,14 +84,17 @@ int main(int argc, char **argv){
 	while(key != 'q'){
 		GazePoint gaze_point = gaze_scraper.getGazePoint();
 		cv::Mat frame = frame_grabber.getLastFrame();
+		clahe->apply(frame,frame);
 		cv::Mat screen;
-		cv::resize(printscreen(0,0,screen_width,screen_height),screen,cv::Size(frame_width,frame_height));
+		cv::resize(printscreen(0,0,screen_width,screen_height),screen,cv::Size(800,600));
+		clahe->apply(screen,screen);
 
-		cv::namedWindow("Frame");
+		cv::Mat img_matches = retrieveHomography(frame,screen);
+
 		cv::imshow("Frame",frame);
-		cv::namedWindow("Screen");
 		cv::imshow("Screen",screen);
-		key = cv::waitKey(5);
+		cv::imshow("Matches",img_matches);
+		key = cv::waitKey(1);
 	}
 
 	gaze_scraper.stop();
@@ -89,4 +103,55 @@ int main(int argc, char **argv){
 	gaze_thread.join();
 	frame_thread.join();
 
+	return 0;
+}
+
+cv::Mat retrieveHomography(const cv::Mat &frame, const cv::Mat &screen){
+	/* create an ORB detector and keypoint vectors */
+	cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create();
+	std::vector<cv::KeyPoint> keypoints_frame, keypoints_screen;
+
+	/* get keypoints and descriptors with ORB */
+	detector->detect(frame,keypoints_frame);
+	detector->detect(screen,keypoints_screen);
+
+	/* extract descriptor vectors from keypoints */
+	cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create();
+	cv::Mat descriptors_frame, descriptors_screen;
+	extractor->compute(frame,keypoints_frame,descriptors_frame);
+	extractor->compute(screen,keypoints_screen,descriptors_screen);
+
+	/* FLANN requires descriptors to be in CV_32F */
+	if(descriptors_frame.type() != CV_32F)
+		descriptors_frame.convertTo(descriptors_frame,CV_32F);
+
+	if(descriptors_screen.type() != CV_32F)
+		descriptors_screen.convertTo(descriptors_screen,CV_32F);
+
+	/* match vectors with FLANN matcher */
+	cv::FlannBasedMatcher matcher;
+	std::vector<cv::DMatch> matches;
+	matcher.match(descriptors_frame,descriptors_screen,matches);
+
+	double max_dist = 0; double min_dist = 100;
+	/* quickly get min and max */
+	for(int i = 0; i < descriptors_frame.rows; ++i){
+		const double dist = matches[i].distance;
+		if(dist < min_dist) min_dist = dist;
+		if(dist > max_dist) max_dist = dist;
+	}
+
+	/* get only the good matches (where distance is less than 2*min_dist) or
+	 * a low ceiling if min_dist is too small
+	 */
+	 std::vector<cv::DMatch> good_matches;
+	 for(int i = 0; i < descriptors_frame.rows; ++i)
+		 if(matches[i].distance <= std::max(2*min_dist,0.02))
+			 good_matches.push_back(matches[i]);
+
+	cv::Mat img_matches;
+	cv::drawMatches(frame,keypoints_frame,screen,keypoints_screen,good_matches,
+		img_matches,cv::Scalar::all(-1),cv::Scalar::all(-1), std::vector<char>(),
+		cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+	return img_matches;
 }
