@@ -96,7 +96,6 @@ int main(int argc, char **argv){
 
 		cv::Mat homography;
 		homography_state hs = retrieveHomography(frame,screen,homography);
-		std::cout << homography << std::endl;
 
 		cv::imshow("Frame",frame);
 		cv::imshow("Screen",screen);
@@ -134,8 +133,8 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 	if(descriptors_screen.type() != CV_32F)
 		descriptors_screen.convertTo(descriptors_screen,CV_32F);
 
-	/* match vectors with FLANN matcher */
-	cv::FlannBasedMatcher matcher;
+	/* match vectors with BF matcher */
+	cv::BFMatcher matcher(cv::NORM_L2);
 	std::vector<cv::DMatch> matches;
 	matcher.match(descriptors_frame,descriptors_screen,matches);
 
@@ -152,7 +151,7 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 	 */
 	std::vector<cv::DMatch> good_matches;
 	for(int i = 0; i < descriptors_frame.rows; ++i)
-		 if(matches[i].distance <= std::max(2*min_dist,0.02))
+		 if(matches[i].distance <= std::max(3*min_dist,0.02))
 			 good_matches.push_back(matches[i]);
 
 	/* compute the homography using matching points */
@@ -165,6 +164,20 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 			screen_points.push_back(keypoints_screen[good_matches[i].trainIdx].pt);
 		}
 		homography = cv::findHomography(screen_points,frame_points,CV_RANSAC);
+		/* rectangle on screen in the frame */
+		const int height = screen.rows;
+		const int width = screen.cols;
+		std::vector<cv::Point2f> rect;
+		rect.emplace_back(0,0);
+		rect.emplace_back(0,height-1);
+		rect.emplace_back(width-1,height-1);
+		rect.emplace_back(width-1,0);
+
+		cv::Mat transformed;
+		cv::perspectiveTransform(rect,transformed,homography);
+		transformed.convertTo(transformed,CV_32S);
+		cv::polylines(frame,transformed,true,255,3,cv::LINE_AA);
+
 		return HOMOG_SUCCESS;
 	}else{
 		return HOMOG_FAIL;
