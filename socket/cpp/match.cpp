@@ -2,9 +2,10 @@
 #include <cstdlib>
 #include <thread>
 
+
 #include "PupilGazeScraper.hpp"
 #include "PupilFrameGrabber.hpp"
-#include "ScreenShotService.hpp"
+#include "scrshot.hpp"
 #include "util.hpp"
 
 int main(int argc, char **argv){
@@ -57,32 +58,35 @@ int main(int argc, char **argv){
 	frame_sub.connect((transport+address+sub_port).c_str());
 	frame_sub.setsockopt(ZMQ_SUBSCRIBE,"frame.world",11);
 
+	/* create the worker threads */
 	PupilGazeScraper gaze_scraper(&gaze_sub);
 	std::thread gaze_thread(&PupilGazeScraper::run,&gaze_scraper);
 
 	PupilFrameGrabber frame_grabber(&frame_sub,frame_width,frame_height);
 	std::thread frame_thread(&PupilFrameGrabber::run,&frame_grabber);
 
-	ScreenShotService screen_shotter(screen_width,screen_height);
-	std::thread screen_thread(&ScreenShotService::run,&screen_shotter);
-
+	/* continously get feed from pupil for gaze data and take screenshots
+	 * get a homography between frame and screenshot and project the gaze coordinates
+	 * to the screen space
+	 */
 	int key = 0;
 	while(key != 'q'){
 		GazePoint gaze_point = gaze_scraper.getGazePoint();
-		printf("GAZE AT %f %f\n",gaze_point.x, gaze_point.y);
-
 		cv::Mat frame = frame_grabber.getLastFrame();
+		cv::Mat screen;
+		cv::resize(printscreen(0,0,screen_width,screen_height),screen,cv::Size(frame_width,frame_height));
+
 		cv::namedWindow("Frame");
 		cv::imshow("Frame",frame);
+		cv::namedWindow("Screen");
+		cv::imshow("Screen",screen);
 		key = cv::waitKey(5);
 	}
 
 	gaze_scraper.stop();
 	frame_grabber.stop();
-	screen_shotter.stop();
 
 	gaze_thread.join();
 	frame_thread.join();
-	screen_thread.join();
 
 }

@@ -1,9 +1,13 @@
 #include "ScreenShotService.hpp"
+#include "scrshot.hpp"
 
-ScreenShotService::ScreenShotService(const int width, const int height):
+ScreenShotService::ScreenShotService(const int width, const int height, const int output_width,
+	const int output_height):
 	active(false),
 	width(width),
 	height(height),
+	output_width(output_width),
+	output_height(output_height),
 	last_screen(height,width,CV_8U){};
 
 void ScreenShotService::run(){
@@ -11,7 +15,12 @@ void ScreenShotService::run(){
 	active = true;
 	state_mutex.unlock();
 
-	/* TODO: finish this up ie. port the screenshot gdk stuff in here */
+	/* take screenshots until stopped */
+	while(active){
+		cv::Mat scaled_screen;
+		cv::resize(printscreen(0,0,width,height),scaled_screen,cv::Size(output_width,output_height));
+		storeScreen(scaled_screen);
+	}
 }
 
 void ScreenShotService::stop(){

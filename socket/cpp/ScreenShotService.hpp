@@ -11,7 +11,8 @@
 
 class ScreenShotService{
 public:
-	ScreenShotService(const int width, const int height);
+	ScreenShotService(const int width, const int height, const int output_width,
+	const int output_height);
 
 	/* callback function for thread to initiate the screenshotting */
 	void run();
@@ -31,6 +32,9 @@ private:
 	/* dimensions of screen */
 	const int width;
 	const int height;
+
+	const int output_width;
+	const int output_height;
 
 	/* last screen stored */
 	cv::Mat last_screen;
