@@ -12,10 +12,15 @@
 #include "scrshot.hpp"
 #include "util.hpp"
 
+enum homography_state{
+	HOMOG_SUCCESS,
+	HOMOG_FAIL
+};
+
 /* finds a homography between two images and creates a perspective matrix
  * so that points from one image can be mapped to points in the other
  */
-cv::Mat retrieveHomography(const cv::Mat &frame,const cv::Mat &screen);
+homography_state retrieveHomography(const cv::Mat &frame,const cv::Mat &screen, cv::Mat &homography);
 
 int main(int argc, char **argv){
 	int frame_width = 640;
@@ -89,11 +94,12 @@ int main(int argc, char **argv){
 		cv::resize(printscreen(0,0,screen_width,screen_height),screen,cv::Size(800,600));
 		clahe->apply(screen,screen);
 
-		cv::Mat img_matches = retrieveHomography(frame,screen);
+		cv::Mat homography;
+		homography_state hs = retrieveHomography(frame,screen,homography);
+		std::cout << homography << std::endl;
 
 		cv::imshow("Frame",frame);
 		cv::imshow("Screen",screen);
-		cv::imshow("Matches",img_matches);
 		key = cv::waitKey(1);
 	}
 
@@ -106,7 +112,7 @@ int main(int argc, char **argv){
 	return 0;
 }
 
-cv::Mat retrieveHomography(const cv::Mat &frame, const cv::Mat &screen){
+homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen, cv::Mat &homography){
 	/* create an ORB detector and keypoint vectors */
 	cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create();
 	std::vector<cv::KeyPoint> keypoints_frame, keypoints_screen;
@@ -144,14 +150,23 @@ cv::Mat retrieveHomography(const cv::Mat &frame, const cv::Mat &screen){
 	/* get only the good matches (where distance is less than 2*min_dist) or
 	 * a low ceiling if min_dist is too small
 	 */
-	 std::vector<cv::DMatch> good_matches;
-	 for(int i = 0; i < descriptors_frame.rows; ++i)
+	std::vector<cv::DMatch> good_matches;
+	for(int i = 0; i < descriptors_frame.rows; ++i)
 		 if(matches[i].distance <= std::max(2*min_dist,0.02))
 			 good_matches.push_back(matches[i]);
 
-	cv::Mat img_matches;
-	cv::drawMatches(frame,keypoints_frame,screen,keypoints_screen,good_matches,
-		img_matches,cv::Scalar::all(-1),cv::Scalar::all(-1), std::vector<char>(),
-		cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-	return img_matches;
+	/* compute the homography using matching points */
+	if(good_matches.size() >= 10){
+		std::vector<cv::Point2f> frame_points;
+		std::vector<cv::Point2f> screen_points;
+		if(good_matches.size())
+		for(size_t i = 0; i < good_matches.size(); ++i){
+			frame_points.push_back(keypoints_frame[good_matches[i].queryIdx].pt);
+			screen_points.push_back(keypoints_screen[good_matches[i].trainIdx].pt);
+		}
+		homography = cv::findHomography(screen_points,frame_points,CV_RANSAC);
+		return HOMOG_SUCCESS;
+	}else{
+		return HOMOG_FAIL;
+	}
 }
