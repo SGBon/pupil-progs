@@ -86,7 +86,9 @@ int main(int argc, char **argv){
 	 * to the screen space
 	 */
 	int key = 0;
+	clock_t elapsed;
 	while(key != 'q'){
+		elapsed = clock();
 		GazePoint gaze_point = gaze_scraper.getGazePoint();
 		cv::Mat frame = frame_grabber.getLastFrame();
 		clahe->apply(frame,frame);
@@ -100,6 +102,8 @@ int main(int argc, char **argv){
 		cv::imshow("Frame",frame);
 		cv::imshow("Screen",screen);
 		key = cv::waitKey(1);
+		elapsed = clock() - elapsed;
+		printf("%f\n",elapsed/(float)CLOCKS_PER_SEC);
 	}
 
 	gaze_scraper.stop();
