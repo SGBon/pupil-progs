@@ -1,9 +1,9 @@
 CXX=clang++
-INCLUDE=`pkg-config --cflags gdk-2.0` `pkg-config --cflags atk` `pkg-config --cflags gtk+-2.0` -Iextern/SocketIO/include/
+INCLUDE=-Iextern/SocketIO/include/
 CFLAGS=-c -Wall -Wextra -g -std=c++11 -Wno-write-strings $(INCLUDE)
-LIBS=-lpthread -lzmq -lmsgpack -lX11 `pkg-config --libs opencv` `pkg-config --libs gdk-2.0` `pkg-config --libs atk` `pkg-config --libs gtk+-2.0` -Lextern/SocketIO/lib/Release/ -lsioclient -lboost_system -lboost_date_time -lboost_random -lcrypto -lssl
+LIBS=-lpthread -lzmq -lmsgpack -lX11 `pkg-config --libs opencv` -Lextern/SocketIO/lib/Release/ -lsioclient -lboost_system -lboost_date_time -lboost_random -lcrypto -lssl
 LDFLAGS=$(LIBS)
-SOURCES=match.cpp PupilGazeScraper.cpp util.cpp PupilFrameGrabber.cpp scrshot.cpp
+SOURCES=match.cpp PupilGazeScraper.cpp util.cpp PupilFrameGrabber.cpp scrshot.cpp homography.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 DEPEND=.depend
 EXECUTABLE=match.exe

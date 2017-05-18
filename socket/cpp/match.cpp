@@ -1,3 +1,9 @@
+/* performs matching between video stream of the pupil eye tracker world camera
+ * and continous screenshots of the target screen.
+ * gaze data and world frames are collected on worker threads
+ * requires C++11, socketIO-client for cpp, opencv 3.x, Xlib, zmq, msgpack
+ * additional dependencies for boost comes from socketIO
+ */
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
@@ -11,17 +17,8 @@
 #include "PupilGazeScraper.hpp"
 #include "PupilFrameGrabber.hpp"
 #include "scrshot.hpp"
+#include "homography.hpp"
 #include "util.hpp"
-
-enum homography_state{
-	HOMOG_SUCCESS,
-	HOMOG_FAIL
-};
-
-/* finds a homography between two images and creates a perspective matrix
- * so that points from one image can be mapped to points in the other
- */
-homography_state retrieveHomography(const cv::Mat &frame,const cv::Mat &screen, cv::Mat &homography);
 
 int main(int argc, char **argv){
 	int frame_width = 640;
@@ -97,8 +94,6 @@ int main(int argc, char **argv){
 	 */
 	int key = 0;
 	clock_t elapsed;
-	double test_x = 0;
-	double test_y = 0;
 	while(key != 'q'){
 		elapsed = clock();
 		GazePoint gaze_point = gaze_scraper.getGazePoint();
@@ -126,8 +121,6 @@ int main(int argc, char **argv){
 			point.at<double>(0,1) = gaze_point.y*frame_height;
 
 			cv::perspectiveTransform(point,normalized_point,homography_f2s);
-			cv::circle(frame,cv::Point(test_x,test_y),5,255);
-			cv::circle(screen,cv::Point(normalized_point.at<double>(0,0),normalized_point.at<double>(0,1)),5,255);
 
 			/* normalize the point and send it off down the pipeline */
 			normalized_point.at<double>(0,0) /= screen_sub_width;
@@ -153,77 +146,4 @@ int main(int argc, char **argv){
 	gaze_emitter.sync_close();
 
 	return 0;
-}
-
-homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen, cv::Mat &homography){
-	/* create an ORB detector and keypoint vectors */
-	cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create();
-	std::vector<cv::KeyPoint> keypoints_frame, keypoints_screen;
-
-	/* get keypoints and descriptors with ORB */
-	detector->detect(frame,keypoints_frame);
-	detector->detect(screen,keypoints_screen);
-
-	/* extract descriptor vectors from keypoints */
-	cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create();
-	cv::Mat descriptors_frame, descriptors_screen;
-	extractor->compute(frame,keypoints_frame,descriptors_frame);
-	extractor->compute(screen,keypoints_screen,descriptors_screen);
-
-	/* FLANN requires descriptors to be in CV_32F */
-	if(descriptors_frame.type() != CV_32F)
-		descriptors_frame.convertTo(descriptors_frame,CV_32F);
-
-	if(descriptors_screen.type() != CV_32F)
-		descriptors_screen.convertTo(descriptors_screen,CV_32F);
-
-	/* match vectors with BF matcher */
-	cv::BFMatcher matcher(cv::NORM_L2);
-	std::vector<cv::DMatch> matches;
-	matcher.match(descriptors_frame,descriptors_screen,matches);
-
-	double max_dist = 0; double min_dist = 100;
-	/* quickly get min and max */
-	for(int i = 0; i < descriptors_frame.rows; ++i){
-		const double dist = matches[i].distance;
-		if(dist < min_dist) min_dist = dist;
-		if(dist > max_dist) max_dist = dist;
-	}
-
-	/* get only the good matches (where distance is less than 2*min_dist) or
-	 * a low ceiling if min_dist is too small
-	 */
-	std::vector<cv::DMatch> good_matches;
-	for(int i = 0; i < descriptors_frame.rows; ++i)
-		 if(matches[i].distance <= std::max(3*min_dist,0.02))
-			 good_matches.push_back(matches[i]);
-
-	/* compute the homography using matching points */
-	if(good_matches.size() >= 10){
-		std::vector<cv::Point2f> frame_points;
-		std::vector<cv::Point2f> screen_points;
-		if(good_matches.size())
-		for(size_t i = 0; i < good_matches.size(); ++i){
-			frame_points.push_back(keypoints_frame[good_matches[i].queryIdx].pt);
-			screen_points.push_back(keypoints_screen[good_matches[i].trainIdx].pt);
-		}
-		homography = cv::findHomography(screen_points,frame_points,CV_RANSAC);
-		/* rectangle on screen in the frame */
-		const int height = screen.rows;
-		const int width = screen.cols;
-		std::vector<cv::Point2f> rect;
-		rect.emplace_back(0,0);
-		rect.emplace_back(0,height-1);
-		rect.emplace_back(width-1,height-1);
-		rect.emplace_back(width-1,0);
-
-		cv::Mat transformed;
-		cv::perspectiveTransform(rect,transformed,homography);
-		transformed.convertTo(transformed,CV_32S);
-		cv::polylines(frame,transformed,true,255,3,cv::LINE_AA);
-
-		return HOMOG_SUCCESS;
-	}else{
-		return HOMOG_FAIL;
-	}
 }
