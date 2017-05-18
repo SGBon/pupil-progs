@@ -6,6 +6,7 @@
 #include <thread>
 
 #include <opencv2/opencv.hpp>
+#include <sio_client.h>
 
 #include "PupilGazeScraper.hpp"
 #include "PupilFrameGrabber.hpp"
@@ -25,8 +26,14 @@ homography_state retrieveHomography(const cv::Mat &frame,const cv::Mat &screen, 
 int main(int argc, char **argv){
 	int frame_width = 640;
 	int frame_height = 480;
+	/* actual resolution of screen */
 	int screen_width = 1920;
 	int screen_height = 1080;
+	/* resolution of screen in homography retrieval */
+	const int screen_sub_width = 800;
+	const int screen_sub_height = 600;
+
+	const int signature = 0;
 	if(argc > 4){
 		frame_width = atoi(argv[1]);
 		frame_height = atoi(argv[2]);
@@ -81,29 +88,60 @@ int main(int argc, char **argv){
 
 	cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(2.0);
 
+	sio::client gaze_emitter;
+	gaze_emitter.connect("http://127.0.0.1:3000");
+
 	/* continously get feed from pupil for gaze data and take screenshots
 	 * get a homography between frame and screenshot and project the gaze coordinates
 	 * to the screen space
 	 */
 	int key = 0;
 	clock_t elapsed;
+	double test_x = 0;
+	double test_y = 0;
 	while(key != 'q'){
 		elapsed = clock();
 		GazePoint gaze_point = gaze_scraper.getGazePoint();
 		cv::Mat frame = frame_grabber.getLastFrame();
 		clahe->apply(frame,frame);
 		cv::Mat screen;
-		cv::resize(printscreen(0,0,screen_width,screen_height),screen,cv::Size(800,600));
+		cv::resize(printscreen(0,0,screen_width,screen_height),screen,cv::Size(screen_sub_width,screen_sub_height));
 		clahe->apply(screen,screen);
 
-		cv::Mat homography;
-		homography_state hs = retrieveHomography(frame,screen,homography);
+		/* homography from screen to frame and vice-versa */
+		cv::Mat homography_s2f;
+		cv::Mat homography_f2s;
+		homography_state hs = retrieveHomography(frame,screen,homography_s2f);
+		/* using the homography, invert it to go from frame to screenspace
+		 * apply the inverse homography to the gaze point, normalize the output
+		 * relative to the screen dimensions, and send down socketIO for use by
+		 * gaze-enabled applications
+		 */
+		if(hs == HOMOG_SUCCESS){
+			homography_f2s = homography_s2f.inv();
 
-		cv::imshow("Frame",frame);
-		cv::imshow("Screen",screen);
-		key = cv::waitKey(1);
-		elapsed = clock() - elapsed;
-		printf("%f\n",elapsed/(float)CLOCKS_PER_SEC);
+			cv::Mat point(1,1,CV_64FC2);
+			cv::Mat normalized_point(1,1,CV_64FC2);
+			point.at<double>(0,0) = gaze_point.x*frame_width;
+			point.at<double>(0,1) = gaze_point.y*frame_height;
+
+			cv::perspectiveTransform(point,normalized_point,homography_f2s);
+			cv::circle(frame,cv::Point(test_x,test_y),5,255);
+			cv::circle(screen,cv::Point(normalized_point.at<double>(0,0),normalized_point.at<double>(0,1)),5,255);
+
+			/* normalize the point and send it off down the pipeline */
+			normalized_point.at<double>(0,0) /= screen_sub_width;
+			normalized_point.at<double>(0,1) /= screen_sub_height;
+			sio::message::list li;
+			li.push(sio::double_message::create(normalized_point.at<double>(0,0)));
+			li.push(sio::double_message::create(normalized_point.at<double>(0,1)));
+			li.push(sio::int_message::create(signature));
+			gaze_emitter.socket()->emit("eye pos",li.to_array_message());
+
+			cv::imshow("Frame",frame);
+			cv::imshow("Screen",screen);
+			key = cv::waitKey(1);
+		}
 	}
 
 	gaze_scraper.stop();
@@ -111,6 +149,8 @@ int main(int argc, char **argv){
 
 	gaze_thread.join();
 	frame_thread.join();
+
+	gaze_emitter.sync_close();
 
 	return 0;
 }
