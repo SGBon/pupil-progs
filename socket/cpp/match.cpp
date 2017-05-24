@@ -94,9 +94,16 @@ int main(int argc, char **argv){
 	 */
 	int key = 0;
 	clock_t elapsed;
+	float smooth_x = 0.5f;
+	float smooth_y = 0.5f;
 	while(key != 'q'){
 		elapsed = clock();
 		GazePoint gaze_point = gaze_scraper.getGazePoint();
+		/* smooth eye movement */
+		smooth_x += 0.5 * (gaze_point.x - smooth_x);
+		smooth_y += 0.5 * (gaze_point.y - smooth_y);
+		gaze_point.x = smooth_x;
+		gaze_point.y = smooth_y;
 		cv::Mat frame = frame_grabber.getLastFrame();
 		clahe->apply(frame,frame);
 		cv::Mat screen;
@@ -120,7 +127,8 @@ int main(int argc, char **argv){
 			point.at<double>(0,0) = gaze_point.x*frame_width;
 			point.at<double>(0,1) = gaze_point.y*frame_height;
 
-			cv::perspectiveTransform(point,normalized_point,homography_f2s);
+			try{
+				cv::perspectiveTransform(point,normalized_point,homography_f2s);
 
 			/* normalize the point and send it off down the pipeline */
 			normalized_point.at<double>(0,0) /= screen_sub_width;
@@ -130,9 +138,12 @@ int main(int argc, char **argv){
 			li.push(sio::double_message::create(normalized_point.at<double>(0,1)));
 			li.push(sio::int_message::create(signature));
 			gaze_emitter.socket()->emit("eye pos",li.to_array_message());
+			}catch (const std::exception &e){
+				/* this is a non fatal error that pops up */
+				std::cerr << e.what() << std::endl;
+			}
 
 			cv::imshow("Frame",frame);
-			cv::imshow("Screen",screen);
 			key = cv::waitKey(1);
 		}
 	}

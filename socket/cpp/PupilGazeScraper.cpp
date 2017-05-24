@@ -5,7 +5,7 @@
 #include <boost/variant.hpp>
 #include <msgpack.hpp>
 
-static double norm_pos[2];
+static float norm_pos[2] = {0,0};
 
 PupilGazeScraper::PupilGazeScraper(zmq::socket_t *subscriber):
 	subscriber(subscriber),

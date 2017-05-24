@@ -8,8 +8,9 @@
 cv::Mat printscreen(const int x, const int y, const int w, const int h){
 	Display *display = XOpenDisplay(NULL);
 	Window root = DefaultRootWindow(display);
+	XMapRaised(display,root);
 
-	XImage *img = XGetImage(display,root,0,0,w,h,AllPlanes,ZPixmap);
+	XImage *img = XGetImage(display,root,x,y,w,h,AllPlanes,ZPixmap);
 	const int bits_per_pixel = img->bits_per_pixel;
 
 	cv::Mat screen (h,w,bits_per_pixel > 24 ? CV_8UC4 : CV_8UC3,img->data);
