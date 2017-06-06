@@ -5,7 +5,7 @@
  */
 homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen, cv::Mat &homography){
 	/* create an ORB detector and keypoint vectors */
-	cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create();
+	cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create(1000,1.2f,8,31,0,4);
 	std::vector<cv::KeyPoint> keypoints_frame, keypoints_screen;
 
 	/* get keypoints and descriptors with ORB */
@@ -13,7 +13,7 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 	detector->detect(screen,keypoints_screen);
 
 	/* extract descriptor vectors from keypoints */
-	cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create();
+	cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create(1000,1.2f,8,31,0,4);
 	cv::Mat descriptors_frame, descriptors_screen;
 	extractor->compute(frame,keypoints_frame,descriptors_frame);
 	extractor->compute(screen,keypoints_screen,descriptors_screen);
@@ -43,7 +43,7 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 	 */
 	std::vector<cv::DMatch> good_matches;
 	for(int i = 0; i < descriptors_frame.rows; ++i)
-		 if(matches[i].distance <= std::max(3*min_dist,0.02))
+		 if(matches[i].distance <= std::max(2.5*min_dist,0.02))
 			 good_matches.push_back(matches[i]);
 
 	/* compute the homography using matching points */

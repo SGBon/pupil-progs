@@ -93,11 +93,9 @@ int main(int argc, char **argv){
 	 * to the screen space
 	 */
 	int key = 0;
-	clock_t elapsed;
 	float smooth_x = 0.5f;
 	float smooth_y = 0.5f;
 	while(key != 'q'){
-		elapsed = clock();
 		GazePoint gaze_point = gaze_scraper.getGazePoint();
 		/* smooth eye movement */
 		smooth_x += 0.5 * (gaze_point.x - smooth_x);
