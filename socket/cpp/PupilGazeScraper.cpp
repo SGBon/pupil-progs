@@ -81,7 +81,7 @@ void retrieveGaze(variant_t const& v) {
 							gaze_d.push_back(boost::get<double>(g));
 						}
 						norm_pos[0] = gaze_d[0];
-						norm_pos[1] = gaze_d[1];
+						norm_pos[1] = 1 - gaze_d[1];
 						break;
 					}
 				}

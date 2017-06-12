@@ -102,6 +102,7 @@ int main(int argc, char **argv){
 		smooth_y += 0.5 * (gaze_point.y - smooth_y);
 		gaze_point.x = smooth_x;
 		gaze_point.y = smooth_y;
+
 		cv::Mat frame = frame_grabber.getLastFrame();
 		clahe->apply(frame,frame);
 		cv::Mat screen;
@@ -127,15 +128,14 @@ int main(int argc, char **argv){
 
 			try{
 				cv::perspectiveTransform(point,normalized_point,homography_f2s);
-
-			/* normalize the point and send it off down the pipeline */
-			normalized_point.at<double>(0,0) /= screen_sub_width;
-			normalized_point.at<double>(0,1) /= screen_sub_height;
-			sio::message::list li;
-			li.push(sio::double_message::create(normalized_point.at<double>(0,0)));
-			li.push(sio::double_message::create(normalized_point.at<double>(0,1)));
-			li.push(sio::int_message::create(signature));
-			gaze_emitter.socket()->emit("eye pos",li.to_array_message());
+				/* normalize the point and send it off down the pipeline */
+				normalized_point.at<double>(0,0) /= screen_sub_width;
+				normalized_point.at<double>(0,1) /= screen_sub_height;
+				sio::message::list li;
+				li.push(sio::double_message::create(normalized_point.at<double>(0,0)));
+				li.push(sio::double_message::create(normalized_point.at<double>(0,1)));
+				li.push(sio::int_message::create(signature));
+				gaze_emitter.socket()->emit("eye pos",li.to_array_message());
 			}catch (const std::exception &e){
 				/* this is a non fatal error that pops up */
 				std::cerr << e.what() << std::endl;
