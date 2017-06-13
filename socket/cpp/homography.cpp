@@ -5,18 +5,17 @@
  */
 homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen, cv::Mat &homography){
 	/* create an ORB detector and keypoint vectors */
-	cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create(1000,1.2f,8,31,0,4);
+	cv::Ptr<cv::ORB> orb = cv::ORB::create(1000,1.2f,8,31,0,4);
 	std::vector<cv::KeyPoint> keypoints_frame, keypoints_screen;
 
 	/* get keypoints and descriptors with ORB */
-	detector->detect(frame,keypoints_frame);
-	detector->detect(screen,keypoints_screen);
+	orb->detect(frame,keypoints_frame);
+	orb->detect(screen,keypoints_screen);
 
 	/* extract descriptor vectors from keypoints */
-	cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create(1000,1.2f,8,31,0,4);
 	cv::Mat descriptors_frame, descriptors_screen;
-	extractor->compute(frame,keypoints_frame,descriptors_frame);
-	extractor->compute(screen,keypoints_screen,descriptors_screen);
+	orb->compute(frame,keypoints_frame,descriptors_frame);
+	orb->compute(screen,keypoints_screen,descriptors_screen);
 
 	/* FLANN requires descriptors to be in CV_32F */
 	if(descriptors_frame.type() != CV_32F)
@@ -32,7 +31,7 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 
 	double max_dist = 0; double min_dist = 100;
 	/* quickly get min and max */
-	for(int i = 0; i < descriptors_frame.rows; ++i){
+	for(size_t i = 0; i < matches.size(); ++i){
 		const double dist = matches[i].distance;
 		if(dist < min_dist) min_dist = dist;
 		if(dist > max_dist) max_dist = dist;
@@ -42,8 +41,8 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 	 * a low ceiling if min_dist is too small
 	 */
 	std::vector<cv::DMatch> good_matches;
-	for(int i = 0; i < descriptors_frame.rows; ++i)
-		 if(matches[i].distance <= std::max(2.5*min_dist,0.02))
+	for(size_t i = 0; i < matches.size(); ++i)
+		 if(matches[i].distance <= std::max(2*min_dist,0.02))
 			 good_matches.push_back(matches[i]);
 
 	/* compute the homography using matching points */
