@@ -1,4 +1,5 @@
 #include "PupilFrameGrabber.hpp"
+#include <iostream>
 
 PupilFrameGrabber::PupilFrameGrabber(zmq::socket_t *subscriber, const int width,
 	const int height):
