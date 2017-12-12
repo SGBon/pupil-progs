@@ -1,3 +1,7 @@
+import sys
+
+tracker = int(sys.argv[1]) # set signature to first argument
+
 import zmq
 from msgpack import loads
 
@@ -22,8 +26,10 @@ with SocketIO('localhost',3000,LoggingNamespace) as socketIO:
 		topic,msg = sub.recv_multipart()
 		eye_positions = loads(msg)
 		try:
-			eyes = eye_positions['gaze_on_srf'][0]
+			eyes = eye_positions['gaze_on_srf'][0]['norm_pos']
 			if(eyes[0] >=0 and eyes[0] <= 1 and eyes[1] >= 0 and eyes[1] <= 1):
+				eyes[1] = 1 - eyes[1]
+				eyes.append(tracker)
 				print eyes
 				socketIO.emit('eye pos',eyes)
 		except:
