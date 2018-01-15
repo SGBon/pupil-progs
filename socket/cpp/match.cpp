@@ -27,8 +27,8 @@ int main(int argc, char **argv){
 	int screen_width = 1920;
 	int screen_height = 1080;
 	/* resolution of screen in homography retrieval */
-	const int screen_sub_width = 800;
-	const int screen_sub_height = 600;
+	const int screen_sub_width = 1280;
+	const int screen_sub_height = 720;
 
 	const int signature = 0;
 	if(argc > 4){
@@ -95,6 +95,14 @@ int main(int argc, char **argv){
 	int key = 0;
 	float smooth_x = 0.5f;
 	float smooth_y = 0.5f;
+	const cv::Size outputSize(frame_width+screen_sub_width,std::max(frame_height,screen_sub_height));
+	cv::VideoWriter outputVideo;
+	//outputVideo.open("debug.mp4",-1,25,outputSize,true);
+	const bool opened = outputVideo.open("debug.mp4",cv::VideoWriter::fourcc('M','J','P','G'),10,outputSize,true);
+	if(!opened){
+		std::cerr << "Video did not open" << std::endl;
+		exit(-1);
+	}
 	while(key != 'q'){
 		GazePoint gaze_point = gaze_scraper.getGazePoint();
 		/* smooth eye movement */
@@ -112,7 +120,8 @@ int main(int argc, char **argv){
 		/* homography from screen to frame and vice-versa */
 		cv::Mat homography_s2f;
 		cv::Mat homography_f2s;
-		homography_state hs = retrieveHomography(frame,screen,homography_s2f);
+		cv::Mat debug;
+		homography_state hs = retrieveHomography(frame,screen,homography_s2f,&debug);
 		/* using the homography, invert it to go from frame to screenspace
 		 * apply the inverse homography to the gaze point, normalize the output
 		 * relative to the screen dimensions, and send down socketIO for use by
@@ -142,6 +151,8 @@ int main(int argc, char **argv){
 			}
 
 			cv::imshow("Frame",frame);
+			cv::imshow("debug",debug);
+			outputVideo << debug;
 			key = cv::waitKey(1);
 		}
 	}

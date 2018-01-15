@@ -148,6 +148,7 @@ with SocketIO('localhost',3000,LoggingNamespace) as socketIO:
 					if acceptLinePair(lines[i][0],lines[j][0],np.pi/32.0):
 						intersections.append(computeIntersect(lines[i][0],lines[j][0]))
 
+		
 		if len(intersections) > 3:
 			intersections = np.float32(np.array(intersections))
 			box = np.int0(cv2.boxPoints(cv2.minAreaRect(intersections)))

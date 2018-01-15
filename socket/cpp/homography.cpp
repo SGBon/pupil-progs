@@ -1,9 +1,16 @@
 #include "homography.hpp"
+#include <limits>
+#include <algorithm>
+#include <vector>
+
+bool dmatchCompare(cv::DMatch first, cv::DMatch second){
+	return first.distance < second.distance;
+}
 
 /* the method here is borrowed from http://docs.opencv.org/2.4/doc/tutorials/features2d/feature_homography/feature_homography.html
  * that tutorial is in 2.4 but this requires opencv 3.x
  */
-homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen, cv::Mat &homography){
+homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen, cv::Mat &homography, cv::Mat *debug){
 	/* create an ORB detector and keypoint vectors */
 	cv::Ptr<cv::ORB> orb = cv::ORB::create(1000,1.2f,8,31,0,4);
 	std::vector<cv::KeyPoint> keypoints_frame, keypoints_screen;
@@ -18,19 +25,22 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 	orb->compute(screen,keypoints_screen,descriptors_screen);
 
 	/* FLANN requires descriptors to be in CV_32F */
+	/*
 	if(descriptors_frame.type() != CV_32F)
 		descriptors_frame.convertTo(descriptors_frame,CV_32F);
 
 	if(descriptors_screen.type() != CV_32F)
 		descriptors_screen.convertTo(descriptors_screen,CV_32F);
-
+		*/
 	/* match vectors with BF matcher */
-	cv::BFMatcher matcher(cv::NORM_L2);
+	cv::BFMatcher matcher(cv::NORM_HAMMING2);
 	std::vector<cv::DMatch> matches;
 	matcher.match(descriptors_frame,descriptors_screen,matches);
+	std::sort(matches.begin(),matches.end(),dmatchCompare);
 
-	double max_dist = 0; double min_dist = 100;
 	/* quickly get min and max */
+	double max_dist = 0;
+	double min_dist = DBL_MAX;
 	for(size_t i = 0; i < matches.size(); ++i){
 		const double dist = matches[i].distance;
 		if(dist < min_dist) min_dist = dist;
@@ -42,7 +52,7 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 	 */
 	std::vector<cv::DMatch> good_matches;
 	for(size_t i = 0; i < matches.size(); ++i)
-		 if(matches[i].distance <= std::max(2*min_dist,0.02))
+		 if(matches[i].distance <= std::max(3*min_dist,0.02))
 			 good_matches.push_back(matches[i]);
 
 	/* compute the homography using matching points */
@@ -68,6 +78,18 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 		cv::perspectiveTransform(rect,transformed,homography);
 		transformed.convertTo(transformed,CV_32S);
 		cv::polylines(frame,transformed,true,255,3,cv::LINE_AA);
+
+		if(debug != NULL){
+			//cv::drawKeypoints(frame,keypoints_frame,debug_frame);
+
+			std::vector<cv::DMatch> top_matches;
+			for(size_t i = 0; i < std::min((size_t)10,good_matches.size());++i){
+				top_matches.push_back(good_matches[i]);
+			}
+			cv::drawMatches(frame,keypoints_frame,screen,keypoints_screen,top_matches,*debug,
+				cv::Scalar(0,0,255),cv::Scalar(255,0,0,100),std::vector<char>(),
+			cv::DrawMatchesFlags::DEFAULT | cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+		}
 
 		return HOMOG_SUCCESS;
 	}else{

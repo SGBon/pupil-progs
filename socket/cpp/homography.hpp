@@ -8,4 +8,4 @@ enum homography_state{
 /* finds a homography between two images and creates a perspective matrix
  * so that points from one image can be mapped to points in the other
  */
-homography_state retrieveHomography(const cv::Mat &frame,const cv::Mat &screen, cv::Mat &homography);
+homography_state retrieveHomography(const cv::Mat &frame,const cv::Mat &screen, cv::Mat &homography, cv::Mat *debug = NULL);

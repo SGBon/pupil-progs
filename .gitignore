@@ -9,3 +9,4 @@ cpptester
 zmqtester
 *.exe
 .depend
+*.mp4
