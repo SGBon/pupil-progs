@@ -1,3 +1,6 @@
+#ifndef PUPIL_PROGS_HOMOGRAPHY_HPP
+#define PUPIL_PROGS_HOMOGRAPHY_HPP
+
 #include <opencv2/opencv.hpp>
 
 enum homography_state{
@@ -12,3 +15,5 @@ homography_state retrieveHomography(const cv::Mat &frame,const cv::Mat &screen, 
 
 /* same as above but uses a local neighbourhood method for feature matching */
 homography_state retrieveHomographyNeighbourhood(const cv::Mat &frame,const cv::Mat &screen, cv::Mat &homography, cv::Mat *debug = NULL);
+
+#endif

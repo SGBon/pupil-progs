@@ -19,6 +19,7 @@
 #include "scrshot.hpp"
 #include "homography.hpp"
 #include "util.hpp"
+#include "averagewindow.hpp"
 
 int main(int argc, char **argv){
 	int frame_width = 640;
@@ -88,13 +89,16 @@ int main(int argc, char **argv){
 	sio::client gaze_emitter;
 	gaze_emitter.connect("http://127.0.0.1:3000");
 
+	/* average window for smoothing gaze */
+	const int WINDOW_SIZE = 30;
+	AverageWindow x_average(WINDOW_SIZE);
+	AverageWindow y_average(WINDOW_SIZE);
+
 	/* continously get feed from pupil for gaze data and take screenshots
 	 * get a homography between frame and screenshot and project the gaze coordinates
 	 * to the screen space
 	 */
 	int key = 0;
-	float smooth_x = 0.5f;
-	float smooth_y = 0.5f;
 	const cv::Size outputSize(frame_width+screen_sub_width,std::max(frame_height,screen_sub_height));
 	cv::VideoWriter outputVideo;
 	//outputVideo.open("debug.mp4",-1,25,outputSize,true);
@@ -106,10 +110,10 @@ int main(int argc, char **argv){
 	while(key != 'q'){
 		GazePoint gaze_point = gaze_scraper.getGazePoint();
 		/* smooth eye movement */
-		smooth_x += 0.5 * (gaze_point.x - smooth_x);
-		smooth_y += 0.5 * (gaze_point.y - smooth_y);
-		gaze_point.x = smooth_x;
-		gaze_point.y = smooth_y;
+		x_average.push_back(gaze_point.x);
+		gaze_point.x = x_average.getAverage();
+		y_average.push_back(gaze_point.y);
+		gaze_point.y = x_average.getAverage();
 
 		cv::Mat frame = frame_grabber.getLastFrame();
 		clahe->apply(frame,frame);
