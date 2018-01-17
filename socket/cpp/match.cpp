@@ -90,7 +90,7 @@ int main(int argc, char **argv){
 	gaze_emitter.connect("http://127.0.0.1:3000");
 
 	/* average window for smoothing gaze */
-	const int WINDOW_SIZE = 30;
+	const int WINDOW_SIZE = 10;
 	AverageWindow x_average(WINDOW_SIZE);
 	AverageWindow y_average(WINDOW_SIZE);
 
@@ -113,7 +113,7 @@ int main(int argc, char **argv){
 		x_average.push_back(gaze_point.x);
 		gaze_point.x = x_average.getAverage();
 		y_average.push_back(gaze_point.y);
-		gaze_point.y = x_average.getAverage();
+		gaze_point.y = y_average.getAverage();
 
 		cv::Mat frame = frame_grabber.getLastFrame();
 		clahe->apply(frame,frame);
