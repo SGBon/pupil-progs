@@ -2,6 +2,7 @@
 #include <limits>
 #include <algorithm>
 #include <vector>
+#include <cmath>
 
 bool dmatchCompare(cv::DMatch first, cv::DMatch second){
 	return first.distance < second.distance;
@@ -47,24 +48,25 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 		if(dist > max_dist) max_dist = dist;
 	}
 
-	/* get only the good matches (where distance is less than 3*min_dist) or
-	 * a low ceiling if min_dist is too small
-	 */
+	/* get the top matches necessary for a homography computation */
 	std::vector<cv::DMatch> good_matches;
-	for(size_t i = 0; i < matches.size(); ++i)
-		 if(matches[i].distance <= std::max(3*min_dist,0.02))
+	for(size_t i = 0; i < std::min((size_t)60,matches.size()); ++i)
 			 good_matches.push_back(matches[i]);
 
 	/* compute the homography using matching points */
 	if(good_matches.size() >= 10){
 		std::vector<cv::Point2f> frame_points;
 		std::vector<cv::Point2f> screen_points;
-		if(good_matches.size())
 		for(size_t i = 0; i < good_matches.size(); ++i){
 			frame_points.push_back(keypoints_frame[good_matches[i].queryIdx].pt);
 			screen_points.push_back(keypoints_screen[good_matches[i].trainIdx].pt);
 		}
 		homography = cv::findHomography(screen_points,frame_points,CV_RANSAC);
+		if(homography.empty()){
+			std::cout << "no homography" << std::endl;
+			return HOMOG_FAIL;
+		}
+		
 		/* rectangle on screen in the frame */
 		const int height = screen.rows;
 		const int width = screen.cols;
@@ -81,16 +83,10 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 
 		if(debug != NULL){
 			//cv::drawKeypoints(frame,keypoints_frame,debug_frame);
-
-			std::vector<cv::DMatch> top_matches;
-			for(size_t i = 0; i < std::min((size_t)20,good_matches.size());++i){
-				top_matches.push_back(good_matches[i]);
-			}
-			cv::drawMatches(frame,keypoints_frame,screen,keypoints_screen,top_matches,*debug,
-				cv::Scalar(0,0,255),cv::Scalar(255,0,0,100),std::vector<char>(),
+			cv::drawMatches(frame,keypoints_frame,screen,keypoints_screen,good_matches,*debug,
+				cv::Scalar(-1,-1,-1,100),cv::Scalar(255,0,0,100),std::vector<char>(),
 			cv::DrawMatchesFlags::DEFAULT | cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 		}
-
 		return HOMOG_SUCCESS;
 	}else{
 		return HOMOG_FAIL;
@@ -100,7 +96,7 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 /* TODO: remove this when not applicable */
 bool first = true;
 const unsigned char MAX_K = 8; // max neighbours for nearest neighhour
-const unsigned char DESC_PER_K = 2; // max description contribution from each neighbour
+const unsigned char DESC_PER_K = 4; // max description contribution from each neighbour
 
 /* compute descriptors of keypoints based on the neighbourhood of keypoints
  * near them. First put the keypoints into a matrix which can be accepted
@@ -124,14 +120,18 @@ void computeNeighbourDescriptor(const cv::Mat &image,
 
 	cv::Mat output;
 	for(size_t i = 0; i < matches.size(); ++i){
-		cv::Mat descriptor_row(1,(MAX_K-1)*DESC_PER_K,CV_32F);
-		for(unsigned char j = 1; j < matches[i].size(); ++j){
-			const cv::Mat point = keypoints_mat.row(matches[i][j].queryIdx);
-			cv::Mat norm_point;
-			cv::normalize(point,norm_point);
-			for(unsigned char k = 0; k <DESC_PER_K; ++k){
-				descriptor_row.at<float>(j*DESC_PER_K+k) = norm_point.at<float>(k);
-			}
+		const cv::Mat point = keypoints_mat.row(matches[i][0].queryIdx);
+		cv::Mat descriptor_row(1,(matches[i].size()-1)*DESC_PER_K,CV_32F);
+		for(unsigned char j = 0; j < matches[i].size()-1; ++j){
+			const cv::Mat vector = keypoints_mat.row(matches[i][j+1].trainIdx) - point;
+			const float angle = atan2(vector.at<float>(1),vector.at<float>(0));
+			const float magnitude = cv::norm(vector);
+			cv::Mat norm_vector;
+			cv::normalize(vector,norm_vector);
+			descriptor_row.at<float>(j*DESC_PER_K) = norm_vector.at<float>(0);
+			descriptor_row.at<float>(j*DESC_PER_K+1) = norm_vector.at<float>(1);
+			descriptor_row.at<float>(j*DESC_PER_K+2) = angle;
+			descriptor_row.at<float>(j*DESC_PER_K+3) = magnitude;
 		}
 		output.push_back(descriptor_row);
 	}
@@ -185,12 +185,16 @@ homography_state retrieveHomographyNeighbourhood(const cv::Mat &frame, const cv:
 	if(good_matches.size() >= 10){
 		std::vector<cv::Point2f> frame_points;
 		std::vector<cv::Point2f> screen_points;
-		if(good_matches.size())
 		for(size_t i = 0; i < good_matches.size(); ++i){
 			frame_points.push_back(keypoints_frame[good_matches[i].queryIdx].pt);
 			screen_points.push_back(keypoints_screen[good_matches[i].trainIdx].pt);
 		}
 		homography = cv::findHomography(screen_points,frame_points,CV_RANSAC);
+		if(homography.empty()){
+			std::cout << "no homography" << std::endl;
+			return HOMOG_FAIL;
+		}
+
 		/* rectangle on screen in the frame */
 		const int height = screen.rows;
 		const int width = screen.cols;
@@ -208,7 +212,7 @@ homography_state retrieveHomographyNeighbourhood(const cv::Mat &frame, const cv:
 		if(debug != NULL){
 			//cv::drawKeypoints(frame,keypoints_frame,debug_frame);
 			cv::drawMatches(frame,keypoints_frame,screen,keypoints_screen,good_matches,*debug,
-				cv::Scalar(0,0,255),cv::Scalar(255,0,0,100),std::vector<char>(),
+				cv::Scalar::all(-1),cv::Scalar(255,0,0),std::vector<char>(),
 			cv::DrawMatchesFlags::DEFAULT | cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 		}
 

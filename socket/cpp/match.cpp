@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <cstring>
 #include <iostream>
 #include <vector>
 #include <thread>
@@ -21,6 +22,11 @@
 #include "util.hpp"
 #include "averagewindow.hpp"
 
+enum DescriptorMethod{
+	ORB,
+	KNN
+};
+
 int main(int argc, char **argv){
 	int frame_width = 640;
 	int frame_height = 480;
@@ -31,12 +37,20 @@ int main(int argc, char **argv){
 	const int screen_sub_width = 1280;
 	const int screen_sub_height = 720;
 
-	const int signature = 0;
-	if(argc > 4){
+	int signature = 0;
+	DescriptorMethod descriptor_method = ORB;
+
+	if(argc > 5){
 		frame_width = atoi(argv[1]);
 		frame_height = atoi(argv[2]);
 		screen_width = atoi(argv[3]);
 		screen_height = atoi(argv[4]);
+		signature = atoi(argv[5]);
+		if(argc > 6){
+			if(strncmp("knn",argv[6],3) == 0){
+				descriptor_method = KNN;
+			}
+		}
 	}
 
 	const size_t BUFFER_LEN = 100;
@@ -125,8 +139,16 @@ int main(int argc, char **argv){
 		cv::Mat homography_s2f;
 		cv::Mat homography_f2s;
 		cv::Mat debug;
-		const homography_state hs = retrieveHomography(frame,screen,homography_s2f,&debug);
-		//const homography_state hs = retrieveHomographyNeighbourhood(frame,screen,homography_s2f,&debug);
+		homography_state hs;
+
+		switch(descriptor_method){
+			case ORB:
+				hs = retrieveHomography(frame,screen,homography_s2f,&debug);
+				break;
+			case KNN:
+				hs = retrieveHomographyNeighbourhood(frame,screen,homography_s2f,&debug);
+				break;
+		}
 		/* using the homography, invert it to go from frame to screenspace
 		 * apply the inverse homography to the gaze point, normalize the output
 		 * relative to the screen dimensions, and send down socketIO for use by
