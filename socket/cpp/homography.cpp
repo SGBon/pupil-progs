@@ -4,6 +4,8 @@
 #include <vector>
 #include <cmath>
 
+#include "scd.hpp"
+
 bool dmatchCompare(cv::DMatch first, cv::DMatch second){
 	return first.distance < second.distance;
 }
@@ -66,7 +68,7 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 			std::cout << "no homography" << std::endl;
 			return HOMOG_FAIL;
 		}
-		
+
 		/* rectangle on screen in the frame */
 		const int height = screen.rows;
 		const int width = screen.cols;
@@ -84,7 +86,7 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 		if(debug != NULL){
 			//cv::drawKeypoints(frame,keypoints_frame,debug_frame);
 			cv::drawMatches(frame,keypoints_frame,screen,keypoints_screen,good_matches,*debug,
-				cv::Scalar(-1,-1,-1,100),cv::Scalar(255,0,0,100),std::vector<char>(),
+				cv::Scalar::all(-1),cv::Scalar(255,0,0,100),std::vector<char>(),
 			cv::DrawMatchesFlags::DEFAULT | cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 		}
 		return HOMOG_SUCCESS;
@@ -95,49 +97,6 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 
 /* TODO: remove this when not applicable */
 bool first = true;
-const unsigned char MAX_K = 8; // max neighbours for nearest neighhour
-const unsigned char DESC_PER_K = 4; // max description contribution from each neighbour
-
-/* compute descriptors of keypoints based on the neighbourhood of keypoints
- * near them. First put the keypoints into a matrix which can be accepted
- * by cv::FlannBasedMatcher, then query the matcher for k-nearest neighbours
- * for each point and construct descriptors based on those neighbours.
- */
-void computeNeighbourDescriptor(const cv::Mat &image,
-	std::vector<cv::KeyPoint> &keypoints,
-	cv::Mat &descriptors){
-	cv::Mat keypoints_mat;
-	for(size_t i = 0; i < keypoints.size();++i){
-		cv::Mat row(1,2,CV_32F);
-		row.at<float>(0) = keypoints[i].pt.x;
-		row.at<float>(1) = keypoints[i].pt.y;
-		keypoints_mat.push_back(row);
-	}
-
-	cv::FlannBasedMatcher keypointsMatcher;
-	std::vector<std::vector<cv::DMatch>> matches;
-	keypointsMatcher.knnMatch(keypoints_mat,keypoints_mat,matches,MAX_K);
-
-	cv::Mat output;
-	for(size_t i = 0; i < matches.size(); ++i){
-		const cv::Mat point = keypoints_mat.row(matches[i][0].queryIdx);
-		cv::Mat descriptor_row(1,(matches[i].size()-1)*DESC_PER_K,CV_32F);
-		for(unsigned char j = 0; j < matches[i].size()-1; ++j){
-			const cv::Mat vector = keypoints_mat.row(matches[i][j+1].trainIdx) - point;
-			const float angle = atan2(vector.at<float>(1),vector.at<float>(0));
-			const float magnitude = cv::norm(vector);
-			cv::Mat norm_vector;
-			cv::normalize(vector,norm_vector);
-			descriptor_row.at<float>(j*DESC_PER_K) = norm_vector.at<float>(0);
-			descriptor_row.at<float>(j*DESC_PER_K+1) = norm_vector.at<float>(1);
-			descriptor_row.at<float>(j*DESC_PER_K+2) = angle;
-			descriptor_row.at<float>(j*DESC_PER_K+3) = magnitude;
-		}
-		output.push_back(descriptor_row);
-	}
-
-	descriptors = output.clone();
-}
 
 homography_state retrieveHomographyNeighbourhood(const cv::Mat &frame, const cv::Mat &screen, cv::Mat &homography, cv::Mat *debug){
 	/* create an ORB detector and keypoint vectors */
@@ -150,8 +109,8 @@ homography_state retrieveHomographyNeighbourhood(const cv::Mat &frame, const cv:
 
 	/* extract descriptor vectors from keypoints */
 	cv::Mat descriptors_frame, descriptors_screen;
-	computeNeighbourDescriptor(frame,keypoints_frame,descriptors_frame);
-	computeNeighbourDescriptor(screen,keypoints_screen,descriptors_screen);
+	computeSCD(frame,keypoints_frame,descriptors_frame);
+	computeSCD(screen,keypoints_screen,descriptors_screen);
 
 	/* TODO: remove this when not applicable */
 	if(first){
@@ -171,7 +130,7 @@ homography_state retrieveHomographyNeighbourhood(const cv::Mat &frame, const cv:
 		descriptors_screen.convertTo(descriptors_screen,CV_32F);
 		*/
 	/* match vectors with BF matcher */
-	cv::BFMatcher matcher(cv::NORM_L2);
+	cv::FlannBasedMatcher matcher;
 	std::vector<cv::DMatch> matches;
 	matcher.match(descriptors_frame,descriptors_screen,matches);
 	std::sort(matches.begin(),matches.end(),dmatchCompare);
