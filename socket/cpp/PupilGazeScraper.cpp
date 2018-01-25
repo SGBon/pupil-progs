@@ -9,7 +9,9 @@ static float norm_pos[2] = {0,0};
 
 PupilGazeScraper::PupilGazeScraper(zmq::socket_t *subscriber):
 	subscriber(subscriber),
-	active(false){}
+	active(false),
+	gaze_smoother_x(20),
+	gaze_smoother_y(20){}
 
 /* stuff from https://stackoverflow.com/questions/24412133/deserializing-a-heterogeneous-map-with-messagepack-in-c
  * to convert msgpack to a variant_t
@@ -134,12 +136,15 @@ void PupilGazeScraper::stop(){
 
 void PupilGazeScraper::storeGaze(float x, float y){
 	state_mutex.lock();
-	gaze_point.x = x;
-	gaze_point.y = y;
+	gaze_smoother_x.push_back(x);
+	gaze_smoother_y.push_back(y);
 	state_mutex.unlock();
 }
 
 GazePoint PupilGazeScraper::getGazePoint(){
 	std::lock_guard<std::mutex> lock(state_mutex);
-	return gaze_point;
+	GazePoint averagedGaze;
+	averagedGaze.x = gaze_smoother_x.getAverage();
+	averagedGaze.y = gaze_smoother_y.getAverage();
+	return averagedGaze;
 }

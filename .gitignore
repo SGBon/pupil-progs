@@ -10,3 +10,4 @@ zmqtester
 *.exe
 .depend
 *.mp4
+debug.txt

@@ -1,11 +1,13 @@
 /* gets gaze data from the pupil pipeline
- * performs this on seperate thread
+ * performs this on seperate thread.
+ * also internally smooths the gaze point
  */
 #ifndef PUPIL_GAZE_SCRAPER_HPP
 #define PUPIL_GAZE_SCRAPER_HPP
 
 #include <zmq.hpp>
 #include <mutex>
+#include "averagewindow.hpp"
 
 struct GazePoint{
 	float x;
@@ -30,8 +32,9 @@ private:
 	zmq::socket_t *subscriber;
 	std::mutex state_mutex;
 	bool active;
-	/* locations of gaze, normalized to camera space */
-	GazePoint gaze_point;
+	/* locations of gaze, normalized to camera space and smoothed */
+	AverageWindow gaze_smoother_x;
+	AverageWindow gaze_smoother_y;
 };
 
 #endif

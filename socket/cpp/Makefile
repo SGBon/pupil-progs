@@ -1,6 +1,6 @@
 CXX=g++
 INCLUDE=-Iextern/SocketIO/include/
-CFLAGS=-c -Wall -Wextra -g -std=c++11 -Wno-write-strings $(INCLUDE)
+CFLAGS=-c -Wall -Wextra -g -std=c++11 -Wno-write-strings -fopenmp $(INCLUDE)
 LIBS=-lpthread -lzmq -lmsgpack -lX11 `pkg-config --libs opencv` -Lextern/SocketIO/lib/Release/ -lsioclient -lboost_system -lboost_date_time -lboost_random -lcrypto -lssl
 LDFLAGS=$(LIBS) -fopenmp
 SOURCES=match.cpp PupilGazeScraper.cpp util.cpp PupilFrameGrabber.cpp scrshot.cpp homography.cpp averagewindow.cpp scd.cpp

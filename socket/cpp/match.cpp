@@ -103,11 +103,6 @@ int main(int argc, char **argv){
 	sio::client gaze_emitter;
 	gaze_emitter.connect("http://127.0.0.1:3000");
 
-	/* average window for smoothing gaze */
-	const int WINDOW_SIZE = 10;
-	AverageWindow x_average(WINDOW_SIZE);
-	AverageWindow y_average(WINDOW_SIZE);
-
 	/* continously get feed from pupil for gaze data and take screenshots
 	 * get a homography between frame and screenshot and project the gaze coordinates
 	 * to the screen space
@@ -123,12 +118,6 @@ int main(int argc, char **argv){
 	}
 	while(key != 'q'){
 		GazePoint gaze_point = gaze_scraper.getGazePoint();
-		/* smooth eye movement */
-		x_average.push_back(gaze_point.x);
-		gaze_point.x = x_average.getAverage();
-		y_average.push_back(gaze_point.y);
-		gaze_point.y = y_average.getAverage();
-
 		cv::Mat frame = frame_grabber.getLastFrame();
 		clahe->apply(frame,frame);
 		cv::Mat screen;

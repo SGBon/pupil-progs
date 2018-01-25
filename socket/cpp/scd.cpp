@@ -2,12 +2,14 @@
 #include <cmath>
 #include <cstdio>
 #include <iostream>
+#if defined(_OPENMP)
 #include <omp.h>
+#endif
 
 static const unsigned char RADIUS_BINS = 5;
 static const unsigned char ANGLE_BINS = 12;
 static const unsigned char TOTAL_BINS = RADIUS_BINS*ANGLE_BINS;
-static const float RADIUS_MAX = 50;
+static const float RADIUS_MAX = 100;
 static const float ANGLE_BIN_RADIANS = 2*M_PI/ANGLE_BINS;
 static const float RADIUS_BIN_RATIO = 1.0f/exp(1);
 
