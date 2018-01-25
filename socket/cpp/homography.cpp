@@ -41,15 +41,6 @@ homography_state retrieveHomography(const cv::Mat &frame, const cv::Mat &screen,
 	matcher.match(descriptors_frame,descriptors_screen,matches);
 	std::sort(matches.begin(),matches.end(),dmatchCompare);
 
-	/* quickly get min and max */
-	double max_dist = 0;
-	double min_dist = DBL_MAX;
-	for(size_t i = 0; i < matches.size(); ++i){
-		const double dist = matches[i].distance;
-		if(dist < min_dist) min_dist = dist;
-		if(dist > max_dist) max_dist = dist;
-	}
-
 	/* get the top matches necessary for a homography computation */
 	std::vector<cv::DMatch> good_matches;
 	for(size_t i = 0; i < std::min((size_t)60,matches.size()); ++i)
