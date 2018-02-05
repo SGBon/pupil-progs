@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "imageprocess.hpp"
+
 /* this method from http://stackoverflow.com/questions/24988164/c-fast-screenshots-in-linux-for-use-with-opencv */
 cv::Mat printscreen(const int x, const int y, const int w, const int h){
 	Display *display = XOpenDisplay(NULL);
@@ -16,6 +18,7 @@ cv::Mat printscreen(const int x, const int y, const int w, const int h){
 	cv::Mat screen (h,w,bits_per_pixel > 24 ? CV_8UC4 : CV_8UC3,img->data);
 	cv::Mat bwscreen(h,w,CV_8U);
 	cv::cvtColor(screen,bwscreen,cv::COLOR_RGBA2GRAY);
+	//rgb2gleam(screen,bwscreen);
 
 	XDestroyImage(img);
 	XCloseDisplay(display);

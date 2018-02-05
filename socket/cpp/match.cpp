@@ -36,6 +36,8 @@ int main(int argc, char **argv){
 	/* resolution of screen in homography retrieval */
 	const int screen_sub_width = 1280;
 	const int screen_sub_height = 720;
+	/* address to connect to pupil remote from */
+	std::string address = "127.0.0.1";
 
 	int signature = 0;
 	DescriptorMethod descriptor_method = ORB;
@@ -49,6 +51,11 @@ int main(int argc, char **argv){
 		if(argc > 6){
 			if(strncmp("knn",argv[6],3) == 0){
 				descriptor_method = KNN;
+			}else if(strncmp("orb",argv[6],3) == 0){
+				descriptor_method = ORB;
+			}
+			if(argc > 7){
+				address = argv[7];
 			}
 		}
 	}
@@ -56,7 +63,6 @@ int main(int argc, char **argv){
 	const size_t BUFFER_LEN = 100;
 	char buffer[BUFFER_LEN] = {0};
 	std::string transport("tcp://");
-	std::string address("127.0.0.1");
 	std::string req_port(":50020");
 	zmq::context_t context(1);
 	zmq::socket_t req(context,ZMQ_REQ);

@@ -2,8 +2,8 @@
  * performs this on seperate thread.
  * also internally smooths the gaze point
  */
-#ifndef PUPIL_GAZE_SCRAPER_HPP
-#define PUPIL_GAZE_SCRAPER_HPP
+#ifndef PUPIL_PROGS_GAZE_SCRAPER_HPP
+#define PUPIL_PROGS_GAZE_SCRAPER_HPP
 
 #include <zmq.hpp>
 #include <mutex>
