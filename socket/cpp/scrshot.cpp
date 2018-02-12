@@ -3,6 +3,7 @@
 #include <X11/Xutil.h>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include "imageprocess.hpp"
 
@@ -15,13 +16,11 @@ cv::Mat printscreen(const int x, const int y, const int w, const int h){
 	XImage *img = XGetImage(display,root,x,y,w,h,AllPlanes,ZPixmap);
 	const int bits_per_pixel = img->bits_per_pixel;
 
-	cv::Mat screen (h,w,bits_per_pixel > 24 ? CV_8UC4 : CV_8UC3,img->data);
-	cv::Mat bwscreen(h,w,CV_8U);
-	cv::cvtColor(screen,bwscreen,cv::COLOR_RGBA2GRAY);
-	//rgb2gleam(screen,bwscreen);
+	cv::Mat screen (h,w,bits_per_pixel > 24 ? CV_8UC4 : CV_8UC3);
+	memcpy(screen.data,img->data,h*w*(bits_per_pixel/8));
 
 	XDestroyImage(img);
 	XCloseDisplay(display);
 
-	return bwscreen;
+	return screen;
 }

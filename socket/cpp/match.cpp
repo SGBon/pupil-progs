@@ -109,26 +109,32 @@ int main(int argc, char **argv){
 	sio::client gaze_emitter;
 	gaze_emitter.connect("http://127.0.0.1:3000");
 
-	/* continously get feed from pupil for gaze data and take screenshots
-	 * get a homography between frame and screenshot and project the gaze coordinates
-	 * to the screen space
-	 */
-	int key = 0;
-	const cv::Size outputSize(frame_width+screen_sub_width,std::max(frame_height,screen_sub_height));
+	/* prepare output videos */
 	cv::VideoWriter outputVideo;
-	//outputVideo.open("debug.mp4",-1,25,outputSize,true);
-	const bool opened = outputVideo.open("debug.mp4",cv::VideoWriter::fourcc('M','J','P','G'),5,outputSize,true);
-	if(!opened){
+	outputVideo.open("debug.mp4", cv::VideoWriter::fourcc('M','J','P','G'),	5,
+		cv::Size(frame_width+screen_sub_width,std::max(frame_height,screen_sub_height)),
+		true);
+
+	if(!outputVideo.isOpened()){
 		std::cerr << "Video did not open" << std::endl;
 		exit(-1);
 	}
+
+	/* continously get feed from pupil for gaze data and take screenshots
+	* get a homography between frame and screenshot and project the gaze coordinates
+	* to the screen space
+	*/
+	int key = 0;
+	cv::Mat bwscreen(screen_sub_height,screen_sub_width,CV_8U);
 	while(key != 'q'){
 		GazePoint gaze_point = gaze_scraper.getGazePoint();
 		cv::Mat frame = frame_grabber.getLastFrame();
 		clahe->apply(frame,frame);
 		cv::Mat screen;
 		cv::resize(printscreen(0,0,screen_width,screen_height),screen,cv::Size(screen_sub_width,screen_sub_height));
-		clahe->apply(screen,screen);
+		cv::cvtColor(screen,bwscreen,cv::COLOR_RGBA2GRAY);
+
+		clahe->apply(bwscreen,bwscreen);
 
 		/* homography from screen to frame and vice-versa */
 		cv::Mat homography_s2f;
@@ -138,10 +144,10 @@ int main(int argc, char **argv){
 
 		switch(descriptor_method){
 			case ORB:
-				hs = retrieveHomography(frame,screen,homography_s2f,&debug);
+				hs = retrieveHomography(frame,bwscreen,homography_s2f,&debug);
 				break;
 			case KNN:
-				hs = retrieveHomographyNeighbourhood(frame,screen,homography_s2f,&debug);
+				hs = retrieveHomographyNeighbourhood(frame,bwscreen,homography_s2f,&debug);
 				break;
 		}
 		/* using the homography, invert it to go from frame to screenspace
@@ -174,7 +180,7 @@ int main(int argc, char **argv){
 
 			cv::imshow("Frame",frame);
 			//cv::imshow("debug",debug);
-			outputVideo << debug;
+			outputVideo.write(debug);
 			key = cv::waitKey(1);
 		}
 	}
